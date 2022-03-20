@@ -5,13 +5,18 @@
 <h1 align="center">
   Qt学习指南
 </h1>
-<p align="center">
-  <a href="https://github.com/Nitrosaccharose/QT-Learning-Guide/LICENSE"><img src="https://img.shields.io/github/license/Nitrosaccharose/QT-Learning-Guide" alt="License"></a>
-<p/>
 
 <p align="center">
   从零开始，快速上手Qt应用程序开发框架
 </p>
+ <br/>
+ <br/>
+<p align="center">
+  <a href="https://github.com/Nitrosaccharose/QT-Learning-Guide/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Nitrosaccharose/QT-Learning-Guide" alt="License"></a>
+  <br/>
+  本教程使用AGPL-3.0开源协议
+<p/>
+
 
 ## 🧭 项目简介
 本教程基于markdown编写，一般的编译器只能正常打开部分内容，如需显示所有内容，请使用[**Yank Note**](https://github.com/purocean/yn)打开该文件。
