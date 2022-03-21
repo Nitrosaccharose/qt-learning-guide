@@ -75,10 +75,111 @@ QApplication --> scdx
 通过上述方法，就可以保证在**主事件**运行前能进行程序的全部配置和对象管理。
 ## 让对象关联起来——信号槽
 信号槽是Qt的核心机制，熟练使用信号槽，可以将程序中的各个对象进行解耦，写出具有优秀维护性的应用程序。
-在谈论信号槽这个概念之前，先让我们了解一种设计模式——**观察者模式**
-观察者模式（Observer Pattern）也称**发布订阅模式**（Publish）
+如果一上来就讲一堆定义和概念，读者也许会觉得无聊，我们从一个简单的例子来说起。
 
-观察者模式定义如下：
+读者看过动画片《猫和老鼠》吧，汤姆总是想要抓到杰瑞，但每当杰瑞听到汤姆的动静时，他总能溜走，这是因为：**汤姆通过发出声音，向杰瑞传递了一个信号，这个信号让杰瑞跑了起来**。
+不妨让我们用类的方式来描述这两个对象：
+``` java
+// 抽象猫类😼
+abstract class Cat {
+    abstract void say();
+}
+
+// 抽象鼠类🐭
+abstract class Mouse {
+    abstract void run();
+}
+// 汤姆
+class Tom extends Cat {
+    void say() {
+        System.out.println("我汤姆要来抓人啦！");
+    }
+}
+
+// 杰瑞
+class Jerry extends Mouse {
+    void run() {
+        System.out.println("汤姆来啦，快溜快溜！");
+    }
+}
+```
+接下来模拟一下场景：
+```java
+public class Client {
+    public static void main(string[] args) {
+        Tom tmo = new Tom();
+        Jerry jerry = new Jerry();
+        
+        // Tom发出声音，Jerry开始跑路
+        tom.say();
+        jerry.run();
+    }
+}
+```
+执行结果
+```
+我汤姆要来抓人啦！
+汤姆来啦，快溜快溜！
+```
+这个场景比较简单，而且Tom与Jerry之前的关联只是**人为用代码执行顺序的方式**进行了连接，耦合度极强。
+
+我们再看几种稍微复杂的场景:
+```mermaid
+sequenceDiagram
+    Tom ->> Jerry:say()
+    Jerry ->> Tom:run()
+    Tom ->> Jerry:say()
+    Jerry ->> Tom:run()
+    Tom ->> Jerry:say()
+    Jerry ->> Tom:run()
+```
+::: tip 场景一
+
+假如Jerry逃跑后又回来偷吃东西。Tom再次发出叫声，Jerry再次逃跑，然后Jerry逃跑后又回来偷吃东西，Tom又发出叫声……如此往复。
+
+我们能否实现只要Tom执行`say`方法，Jerry总能**自动**执行`run`方法?
+:::
+```mermaid
+flowchart LR
+tom[TOM]
+client[/Client/]
+subgraph xz[Box]
+    jerry(Jerry)
+end
+client -.-x xz
+client --> tom
+tom -.- jerry
+```
+::: tip 场景二
+假如Jerry藏在箱子里面。即无法获得Jerry这个对象，无法调用它的方法，
+
+我们能否将Tom与Jerry之间的关系连接起来?
+:::
+```mermaid
+flowchart LR
+CatA -.-> |say| MouseA
+CatA -.-> |say| MouseB
+CatA -.-> |say| MouseC
+CatB -.-> |say| MouseA
+CatB -.-> |say| MouseB
+CatB -.-> |say| MouseC
+
+```
+::: tip 场景三
+假如有很多只不同种类的猫和很多只不同种类的鼠，当一只猫调用`say`方法，所有的鼠都会调用`run`。
+
+我们能否将多个对象之间建立起联系？
+:::
+
+通过上述思考，我们要提供一种对象之间的**通信机制**。这种机制，要能够给两个不同对象中的方法建立映射关系，前者被调用时后者也能被自动调用。
+更进一步，即使两个对象都互相不知道对方的存在，仍然可以建立联系。甚至一对一的映射可以扩展到多对多。
+
+将场景三拿出来看，如果用这种简单的连接方式，修改代码的数量会非常之多，每当有一个关系需要连接的时候，就要修改一次类内部的代码，非常不利于维护。
+
+如果Cat们事先知道哪些Mouse需要被通知这个信号，那么就只需遍历一次**需要通知的Mouse列表**不就可以了吗？
+
+为了解决这个问题，我们可以采用一种设计模式——**观察者模式**来解决这个问题。
+观察者模式（Observer Pattern）也称**发布订阅模式**（Publish）它的定义如下：
 ::: tip
 将对象之间使用一对多的依赖关系，使得当一个对象改变状态，则所有依赖于它的对象都会得到通知（信号）并自动更新。
 :::
@@ -112,37 +213,45 @@ ConcreteObserver --o Observer
 定义观察者自己的业务逻辑，同时定义<u>接受消息后的处理逻辑</u>。
 ```mermaid
 flowchart LR
-subgraph gcz[观察者们]
-    direction TB
-    gczA(观察者A)
-    gczB(观察者B)
-    gczC(观察者C)
+subgraph dx[对象池]
+    direction LR
+    subgraph gcz[观察者们]
+        direction TB
+        gczA(观察者A)
+        gczB(观察者B)
+        gczC(观察者C)
+    end
+    subgraph bgcz[被观察者们]
+        direction TB
+        bgczA(被观察者A) --> notifyObserver_A
+        bgczB(被观察者B) --> notifyObserver_B
+        bgczC(被观察者C) --> notifyObserver_C
+    end
 end
-subgraph bgcz[被观察者们]
-    direction TB
-    bgczA(被观察者A)
-    bgczB(被观察者B)
-    bgczC(被观察者C)
-end
-bgczA --> |发出信号| gczA
-bgczA --> |发出信号| gczB
-bgczA --> |发出信号| gczC
-bgczB --> |发出信号| gczB
-bgczB --> |发出信号| gczC
-bgczC --> |发出信号| gczA
+
+notifyObserver_A -.-> |signal| gczA
+notifyObserver_A -.-> |signal| gczC
+notifyObserver_B -.-> |signal| gczB
+notifyObserver_B -.-> |signal| gczC
+notifyObserver_C -.-> |signal| gczC
+
 ```
+所有的被观察者会将需要连接的观察者放入自己的列表，当自己的`notifyObserver`方法被调用时，就会发出信息，通知所有的观察者执行自己的`Update`方法来更新状态。
+
 通过观察者模式，我们就可以将类与类之间进行解耦，观察者模式也非常符合**单一职责原则**，每个类都尽可能的只管自己的事情，当一方的代码进行修改时，只要不涉及信号发送与信号处理的方法，程序基本不会受到任何影响。
 ```mermaid
 flowchart LR
 subgraph dx[对象池]
-dxA[对象A] --> |发出信号| dxB[对象B]
-dxB[对象B] --> |发出信号| dxC[对象C]
-dxC[对象C] --> |发出信号| dxD[对象D]
-dxD[对象D] --> |发出信号| dxB[对象B]
-dxC[对象C] --> |发出信号| dxA[对象A]
+dxA[对象A] <-.-> dxB[对象B]
+dxB[对象B] <-.-> dxC[对象C]
+dxC[对象C] <-.-> dxD[对象D]
+dxD[对象D] <-.-> dxB[对象B]
+dxC[对象C] <-.-> dxA[对象A]
+dxA[对象A] <-.-> dxD[对象D]
+
 end
 ```
-当然这里的观察者与被观察者并不是一个绝对的概念，在Qt中，有许多的对象既是观察者，又充当被观察的角色，形成相互联动的关联特性。
+当然这里的观察者与被观察者并不是一个绝对的概念，很多对象既是观察者，又充当被观察的角色，形成相互联动的关联特性。
 
 再回到Qt来说，所谓信号槽，实际就是观察者模式的一种实现。
 
