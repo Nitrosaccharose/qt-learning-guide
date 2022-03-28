@@ -96,11 +96,11 @@ class Jerry extends Mouse {
 接下来模拟一下场景：
 ```java
 public class Client {
-    public static void main(string[] args) {
-        Tom tmo = new Tom();
+    public static void main(String[] args) {
+        Tom tom = new Tom();
         Jerry jerry = new Jerry();
-        
-        // Tom发出声音，Jerry开始跑路
+
+        // 汤姆发出声音，杰瑞开始跑路
         tom.say();
         jerry.run();
     }
@@ -459,6 +459,8 @@ flowchart LR
 
 如上图所示，整个程序的执行过程是这样的：首先MainWindow的构造函数先创建两个对象，之后用connect函数连接，最后调用JerryEatFood函数。由于我们的连接，当这个信号发出时，会自动调用Jerry的槽函数，打印出语句。
 
+读者如果细心发现，在自定义信号槽中我们手动执行了`JerryEatFood`函数，而原生信号槽却没有这个行为，这是因为：**原生信号槽已经自动写好了对于窗口的动作，只需用connect函数连接完毕即可**。
+
 我们的示例程序讲解完了。基于 Qt 的信号槽机制，我们不需要观察者的容器，也不需要注册对象，就实现了观察者模式。还是非常方便的。
 
 下面总结一下自定义信号槽需要注意的事项：
@@ -468,6 +470,119 @@ flowchart LR
 3. 槽函数是普通的成员函数，作为成员函数，会受到 `public`、`private`、`protected` 的影响；
 4. 使用`emit`在恰当的位置发送信号；
 5. 使用`connect`函数连接信号和槽。
+
+## 简化信号槽传参——Lambda表达式
+Lambda表达式（lambda expression），即**匿名函数**（没有函数名的函数）。
+Lambda表达式基于数学中的 $λ$ 演算得名，通过Lambda表达式可以不用创建匿名类就使用匿名方法， Lambda 表达式可以使代码变的更加简洁紧凑。
+
+`C++11` 提供了对Lambda表达式的支持，Lambda 表达式把函数看作对象。Lambda 表达式可以像对象一样使用，比如可以将它们赋给变量和作为参数传递，还可以像函数一样对其求值。
+
+Lambda 表达式具体形式如下:
+``` cpp
+[capture] (parameters) specifiers -> return_type { body }
+```
+### `capture` 捕获参数列表
+
+捕获的外部变量列表，通过逗号分隔，可进行传值捕获或者引用捕获
+``` cpp
+class CppLambda
+{
+public:
+    void Test1(int InValue) {
+        int Value = 0;
+        auto a1 = [](int x) {/*仅访问外部全局变量*/};
+        auto a2 = [Value](int x) {/*值传递局部变量Value*/};
+        auto a3 = [this](int x) {/*值传递this指针*/};
+        auto a4 = [&Value](int x) {/*引用传递局部变量Value*/};
+        auto a5 = [=](int x) {/*值传递所有可访问的外部变量*/};
+        auto a6 = [&](int x) {/*引用传递所有可访问的外部变量*/};
+        auto a7 = [=, &Value](int x) {/*引用传递局部变量Value，
+                                    值传递所有其他可访问的外部变量*/};
+        auto a8 = [&, Value](int x) {/*值传递局部变量Value，
+                                    引用传递所有其他可访问的外部变量*/};
+    }
+};
+```
+### `parameters` 传入参数列表
+
+匿名函数也支持通过外部传入参数，例如：
+``` cpp
+    int answer = [](int x){return x;}(100);
+    cout << "answer = " << answer;
+``` 
+执行结果为
+```
+answer = 100
+```
+如果没有需要传入的参数，可以连带`()`一同省略。
+
+### `specifiers` 可选参数
+说明符，可选。
+值传递捕获的外部变量是在默认情况下是只读的，若想修改该副本，需要在Lambda表达式上添加`mutable`关键字,例如：
+```cpp
+auto a2 = [Value](int x) mutable {Value++;}；
+```
+此时执行`Value++;`后，`Value的副本`值就会增加1。
+::: warning ⚠️ 注意
+此处修改的只是副本，**该变量的值依旧不会改变**，请读者注意。
+:::
+### `return_type` 匿名函数返回类型
+用来指定匿名函数的返回类型，当返回值为 `void`，或函数体中只有一处 `return` （即编译器可以自动推导出返回值类型），这部分可以省略。
+### `body` 函数体
+匿名函数的执行过程体。
+
+使用Lambda表达式，我们可以修改猫和老鼠的代码：
+``` cpp
+//------------------jerry.cpp------------------
+void Jerry::run() {
+    qDebug() << "Jerry跑了\n" ;
+}
+//------------------mainwindow.cpp------------------
+#include "mainwindow.h"
+#include "tom.h"
+#include "jerry.h"
+#include <QDebug>
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+{
+    this -> tom = new Tom();
+    this -> jerry = new Jerry();
+	tom->setParent(this);
+	jerry->setParent(this);
+	connect(tom, &Tom::say, jerry, [=]{
+		qDebug() << "Jerry跑了\n" ;
+	});
+	JerryEatFood();
+}
+
+void MainWindow::JerryEatFood() {
+    qDebug() << "发现杰瑞在吃东西！";
+    emit tom -> say();
+}
+```
+执行结果为
+```
+发现杰瑞在吃东西！
+Jerry跑了
+```
+``` cpp
+// ---------------------------------------------
+void Jerry::run() {
+    qDebug() << "Jerry跑了\n" ;
+}
+connect(tom, &Tom::say, jerry, &Jerry::run);
+// ---------------------------------------------
+            |
+            |
+            |
+            v
+// ---------------------------------------------         
+    connect(tom, &Tom::say, jerry, [=]{
+		qDebug() << "Jerry跑了\n" ;
+	});
+// ---------------------------------------------
+```
+通过使用Lambda表达式，我们将槽函数定义，槽函数引用两个部分的内容使用一句代码就概括了，并且Lambda表达式执行完毕后会自动释放内存，达到**随时随地使用**的效果。
 
 ## 更宽泛的对象联动——事件
 ## 
