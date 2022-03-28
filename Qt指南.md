@@ -507,8 +507,7 @@ public:
 
 匿名函数也支持通过外部传入参数，例如：
 ``` cpp
-    int answer = [](int x){return x;}(100);
-    cout << "answer = " << answer;
+    int answer = [](int x){ cout << "answer = " << answer;}(100);
 ``` 
 执行结果为
 ```
@@ -572,10 +571,10 @@ void Jerry::run() {
 }
 connect(tom, &Tom::say, jerry, &Jerry::run);
 // ---------------------------------------------
-            |
-            |
-            |
-            v
+                    |
+                    |
+                    |
+                    v
 // ---------------------------------------------         
     connect(tom, &Tom::say, jerry, [=]{
 		qDebug() << "Jerry跑了\n" ;
@@ -585,4 +584,141 @@ connect(tom, &Tom::say, jerry, &Jerry::run);
 通过使用Lambda表达式，我们将槽函数定义，槽函数引用两个部分的内容使用一句代码就概括了，并且Lambda表达式执行完毕后会自动释放内存，达到**随时随地使用**的效果。
 
 ## 更宽泛的对象联动——事件
-## 
+事件（event）是由系统或 Qt 本身在不同的时刻发出的。
+当用户点击鼠标、按下键盘等操作时，或者计时器达到规定时限，都会发出一个相应的事件。
+事件的出现，使得程序代码可以按照**事件驱动**的方式来执行。
+
+在本教程一开始的时候便说明了，C++ 以线性的顺序执行代码，这种**顾前不顾后**的程序设计风格显然不适合于处理复杂的用户交互。
+
+```mermaid
+sequenceDiagram
+    loop 
+        System->>System: Wait for the user to issue a command
+    end
+    User ->> System:clicked()
+    System ->> User:OK~ I will OpenFile()
+    loop 
+        System->>System: Wait for the user to issue a command
+    end
+    User ->> System:(want to ...)
+    System ->> User:( ? ? ? )
+    User -->> System:(Forget it, do something else)
+ 
+    System --> System: WTF ? ? ?
+```
+
+如上图所示，使用程序的人是用户，我们并不清楚用户什么时候会使用某一功能。例如打开文件，我们既不能一直关心用户是否想要打开文件，也不能完全不理睬用户的各种行为。
+```mermaid
+sequenceDiagram
+    loop 
+        System->>EventQueue: Is EventQueue empty?
+        EventQueue->>System: Empty!
+    end
+    User->>EventQueue: addEvent()
+    User->>EventQueue: addEvent()
+    System->>EventQueue: Is EventQueue empty?
+    EventQueue->>System: Not empty!
+    loop
+        System->>EventQueue: handlingEvent()
+    end
+    loop 
+        System->>EventQueue: Is EventQueue empty?
+        EventQueue->>System: Empty!
+    end
+```
+如上图所示，我们可以将事件抽象成为一个**对象**，当某个行为被捕捉到了以后，就把对应的事件加入事件队列，在事件队列的事件会被一次处理，这样，只需要关系**事件队列里是否还有事件未处理**就行了。
+没有事件，程序将阻塞在那里，不执行任何代码。
+::: tip 提示 💡
+上述两个方式，System都会进入循环并一直监听，但对于监听多种事件和只监听事件队列来说，显然后者的复杂性会更低一些，同时效率也会更高。
+:::
+读者也许会有疑问在 Qt 中，事件与信号槽如此相似，他们有什么区别呢？
+
+```mermaid
+flowchart LR
+    subgraph connect
+        cp[connect's process]
+    end
+    ObjectA --> |signal| connect
+    connect --> |slot| ObjectB
+```
+信号由具体的对象发出，然后会马上交给由`connect`连接的对象的槽函数进行处理。使用 Qt 组件的信号槽时，我们并不会把主要精力放在事件上，我们关心更多的是**该对象关联的一个信号**，只关心它的信号怎么发出，发出给谁。
+
+```mermaid
+flowchart LR
+
+    subgraph events
+        eventA
+        eventB
+        eventC
+    end
+    eventA --> Eventfilter[/Eventfilter\]
+    eventB --> Eventfilter
+    eventC --> Eventfilter
+    subgraph EventQueue
+        rear(rear) -.-> front(front)
+    end
+
+
+    Eventfilter --> |add eventA|rear
+    Eventfilter --> |add eventB|rear
+    front ---> System[/System/]
+    System --> |do something| ObjectB
+    System --> |do something| ObjectC
+    System --> |do something| ObjectD
+```
+
+而对于事件，Qt 使用一个事件队列对所有发出的事件进行维护，当新的事件产生时，会被追加到事件队列的尾部。前一个事件完成后，取出后面的事件进行处理。必要时，Qt 的事件**也可以不进入事件队列**，而是**直接处理**。信号一旦发出，对应的槽函数一定会被执行。但是，事件则可以使用**事件过滤器**进行过滤。
+
+在所有组件的父类`QWidget`中，定义了很多事件处理的回调函数：
+事件回调函数 |
+:-----------:|
+|`keyPressEvent()`|
+|`keyReleaseEvent()`|
+|`mouseDoubleClickEvent()`| 
+|`mouseMoveEvent()`| 
+|`mousePressEvent()`|
+|`mouseReleaseEvent()`|
+{.small}
+
+这些函数都是 Protected Virtual 的，也就是说，我们可以在子类中重新实现这些函数。
+所以，在Qt中想要使用事件，需要让类继承`QWidget`类及其子类，然后在定义时重写他们的**事件回调函数**即可。
+
+下面来看一个例子：
+``` cpp
+//------------------EventLabel.cpp------------------
+class EventLabel : public QLabel {
+	protected:
+		void mouseMoveEvent(QMouseEvent *event);
+		void mousePressEvent(QMouseEvent *event);
+		void mouseReleaseEvent(QMouseEvent *event);
+};
+
+void EventLabel::mouseMoveEvent(QMouseEvent *event) {
+	this->setText(QString("<center><h1>Move: (%1, %2)</h1></center>")
+	              .arg(QString::number(event->x()), QString::number(event->y())));
+}
+
+void EventLabel::mousePressEvent(QMouseEvent *event) {
+	this->setText(QString("<center><h1>Press: (%1, %2)</h1></center>")
+	              .arg(QString::number(event->x()), QString::number(event->y())));
+}
+
+void EventLabel::mouseReleaseEvent(QMouseEvent *event) {
+	QString msg;
+	msg.sprintf("<center><h1>Release: (%d, %d)</h1></center>",
+	            event->x(), event->y());
+	this->setText(msg);
+}
+//------------------main.cpp------------------
+int main(int argc, char *argv[]) {
+	QApplication a(argc, argv);
+
+	EventLabel *label = new EventLabel;
+	label->setWindowTitle("MouseEvent Demo");
+	label->resize(300, 200);
+	label->show();
+
+	return a.exec();
+}
+```
+EventLabel继承了QLabel，重写了`mousePressEvent()`、`mouseMoveEvent()`和`MouseReleaseEvent()`三个函数。我们在鼠标按下（press）、鼠标移动（move）和鼠标释放（release）的时候，把当前鼠标的坐标值显示在这个Label上面。由于QLabel是支持 HTML 代码的，因此我们直接使用了 HTML 代码来格式化文字。通过`event`对象的`x()`和`y()`函数，可以获得坐标值。
