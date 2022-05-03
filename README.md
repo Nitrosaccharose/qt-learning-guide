@@ -1,5 +1,5 @@
 <div align=center>
-<img  src="QtLearningGuide.svg" height="60%" width="60%"/>
+<img  src="/image/QtLearningGuide.svg" height="40%" width="40%"/>
 </div>
 
 <h1 align="center">
@@ -16,6 +16,14 @@
   <br/>
   本教程使用AGPL-3.0开源协议
 <p/>
+
+## 🔍 项目预览
+<div align=center>
+  <img  src="/image/1.png" height="45%" width="45%"/>
+  <img  src="/image/2.png" height="45%" width="45%"/>
+  <img  src="/image/3.png" height="45%" width="45%"/>
+  <img  src="/image/4.png" height="45%" width="45%"/>
+</div>
 
 
 ## 🧭 项目简介
