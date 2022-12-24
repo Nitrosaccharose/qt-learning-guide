@@ -52,7 +52,7 @@
 + [Qt5.15官方文档](https://doc.qt.io/qt-5/index.html)
 + [Qt学习之路2 by豆子](https://www.devbean.net/2012/08/qt-study-road-2-catelog/)
 
-## 赞助
+## 🧧 赞助
 如果喜欢的话，请作者喝杯咖啡吧！（赞助一点点也行喔！非常感谢QWQ）
 <div align=center>
   <img  src="/image/2dcode.jpg" height="45%" width="45%"/>
